@@ -1,25 +1,66 @@
 import sys
 import json
-import numpy as np
+#import numpy as np
 import typing
+import heapq
 
-RIVER_EMPTY = -2
 RIVER_NEUTRAL = -1
 
-class ArrayMap():
+class ListMap():
     def __init__(self, map_):
         self.sites = map_['sites']
         self.rivers = map_['rivers']
         self.mines = map_['mines']
 
         self.num_sites = len(self.sites)
-        self.array = np.zeros((self.num_sites, self.num_sites), dtype=int)
-        self.array[:, :] = RIVER_EMPTY
+        self.body = []
+        for _ in range(self.num_sites):
+            self.body.append({})
         for r in self.rivers:
             s = r['source']
             t = r['target']
-            self.array[s, t] = RIVER_NEUTRAL
-            self.array[t, s] = RIVER_NEUTRAL
+            self.body[s][t] = RIVER_NEUTRAL
+            self.body[t][s] = RIVER_NEUTRAL
+        self.mine_to_dists = {}
+        for mine in self.mines:
+            self.mine_to_dists[mine] = self.get_mine_to_dists(mine)
+        print('mine_to_dists:', self.mine_to_dists)
+
+    def get_mine_to_dists(self, mine):  # By Dijkstra method.
+        dists = [2 ** 31] * self.num_sites
+        prevs = [-1] * self.num_sites  # -1: no prev.
+        dists[mine] = 0
+        queue = []
+        heapq.heappush(queue, (0, mine))
+        while queue != []:
+            _, u = heapq.heappop(queue)
+            for t in self.body[u]:
+                if prevs[t] != -1:
+                    continue
+                new_dist = dists[u] + 1
+                if dists[t] > new_dist:
+                    dists[t] = new_dist
+                    prevs[t] = u
+                    heapq.heappush(queue, (new_dist, t))
+        return dists
+
+    def get_reachable_sites(self, mine, punter):
+        maxint = 2 ** 31
+        dists = [maxint] * self.num_sites
+        dists[mine] = 0
+        queue = []
+        heapq.heappush(queue, (0, mine))
+        while queue != []:
+            _, u = heapq.heappop(queue)
+            for t in self.body[u]:
+                # Skip if the punter does not own the river.
+                if self.body[u][t] != punter:
+                    continue
+                new_dist = dists[u] + 1
+                if dists[t] > new_dist:
+                    dists[t] = new_dist
+                    heapq.heappush(queue, (new_dist, t))
+        return [site for site, dist in enumerate(dists) if dist < maxint]
 
 class PassPunter():
     def __init__(self):
@@ -76,7 +117,7 @@ class State():
     def __init__(self, setup):
         self.punter = setup['punter']
         self.punters = setup['punters']
-        self.amap = ArrayMap(setup['map'])
+        self.lmap = ListMap(setup['map'])
 
     def exec_move(self, move):
         if 'pass' in move:
@@ -85,10 +126,10 @@ class State():
             p = move['claim']['punter']
             s = move['claim']['source']
             t = move['claim']['target']
-            r = self.amap.array[s, t]
+            r = self.lmap.body[s][t]
             if r == RIVER_NEUTRAL:
-                self.amap.array[s, t] = p
-                self.amap.array[t, s] = p
+                self.lmap.body[s][t] = p
+                self.lmap.body[t][s] = p
             else:
                 print('invalid move', file=sys.stderr)
         else:
@@ -97,7 +138,7 @@ class State():
     def print_state(self):
         #print('punter: {:d}, punters: {:d}'.format(self.punter, self.punters))
         print('map:')
-        print(self.amap.array)
+        print(self.lmap.body)
 
 if __name__ == '__main__':
     with open('map/sample.json') as fp:
@@ -119,3 +160,10 @@ if __name__ == '__main__':
         print('move_bob:', move_bob)
         state.exec_move(move_bob)
         state.print_state()
+
+    punter_to_score = [0] * state.punters
+    for mine in state.lmap.mines:
+        for punter in range(state.punters):
+            for site in state.lmap.get_reachable_sites(mine, punter):
+                punter_to_score[punter] += state.lmap.mine_to_dists[mine][site] ** 2
+    print('punter_to_score', punter_to_score)
