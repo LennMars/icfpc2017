@@ -87,20 +87,38 @@ class ListMap():
     def print_map(self):
         print('map:', self.body)
 
-class PassPunter():
+class PunterBase():
     def __init__(self, setup):
         pass
 
-    def get_move(self, lmap):
-        return {'pass': {'punter': p}}
-
-class AlicePunter():
-    def __init__(self, setup):
+    def exec_setup(self, setup):
         self.punter_id = setup['punter']
         self.num_punters = setup['punters']
+
+class PassPunter(PunterBase):
+    def __init__(self, setup):
+        pass
+
+    def get_name(self):
+        return 'passer'
+
+    def exec_setup(self, setup):
+        super(PassPunter, self).exec_setup(setup)
+
+    def get_move(self, prev_moves):
+        return {'pass': {'punter': p}}
+
+class AlicePunter(PunterBase):
+    def __init__(self, setup):
         self.turn = 0
 
-    def get_move(self, lmap):
+    def get_name(self):
+        return 'alice'
+
+    def exec_setup(self, setup):
+        super(AlicePunter, self).exec_setup(setup)
+
+    def get_move(self, prev_moves):
         if self.turn == 0:
             move = {'claim': {'punter': 0, 'source': 0, 'target': 1}}
         elif self.turn == 1:
@@ -116,13 +134,19 @@ class AlicePunter():
         self.turn += 1
         return move
 
-class BobPunter():
+class BobPunter(PunterBase):
     def __init__(self, setup):
         self.punter_id = setup['punter']
         self.num_punters = setup['punters']
         self.turn = 0
 
-    def get_move(self, lmap):
+    def get_name(self):
+        return 'bob'
+
+    def exec_setup(self, setup):
+        super(BobPunter, self).exec_setup(setup)
+
+    def get_move(self, prev_moves):
         if self.turn == 0:
             move = {'claim': {'punter': 1, 'source': 1, 'target': 2}}
         elif self.turn == 1:
@@ -138,18 +162,19 @@ class BobPunter():
         self.turn += 1
         return move
 
-class EagerPunter():
+class EagerPunter(PunterBase):
     def __init__(self):
         pass
 
     def exec_setup(self, setup):
+        super(EagerPunter, self).exec_setup(setup)
         self.punter_id = setup['punter']
         self.num_punters = setup['punters']
         self.lmap = ListMap(setup['map'])
         self.turn = 0
 
     def get_name(self):
-        return 'test_punter'
+        return 'cube_eager_punter'
 
     def get_move(self, prev_moves):
         for move in prev_moves:
