@@ -5,6 +5,7 @@ from contextlib import closing
 import game
 
 BUFSIZE = 1024
+TIMEOUT = 5
 
 class Communicator():
     def __init__(self, host, port, punter):
@@ -12,6 +13,8 @@ class Communicator():
         self.port = port
         self.punter = punter
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print('[DEBUG] set socket timeout {} -> {} sec'.format(self.sock.gettimeout(), TIMEOUT))
+        self.sock.settimeout(TIMEOUT)
         print('[INFO] communicator init:', self.host, self.port, self.punter.get_name(), self.sock)
 
     def send_wrap(self, x):
@@ -75,5 +78,5 @@ class Communicator():
 
 if __name__ == '__main__':
     punter = game.EagerPunter()
-    comm = Communicator('punter.inf.ed.ac.uk', 9004, punter)
+    comm = Communicator('punter.inf.ed.ac.uk', 9002, punter)
     comm.start()
