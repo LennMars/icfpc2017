@@ -4,7 +4,7 @@ import re
 import socket
 import sys
 
-import game
+import punterlib
 
 BUFSIZE = 1024
 TIMEOUT = 10
@@ -83,6 +83,6 @@ if __name__ == '__main__':
         print('usage: python {} <port>'.format(sys.argv[0]))
         sys.exit(0)
     port = int(sys.argv[1])
-    punter = game.EagerPunter()
+    punter = punterlib.EagerPunter()
     comm = Communicator('punter.inf.ed.ac.uk', port, punter)
     comm.start()
