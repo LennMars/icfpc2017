@@ -1,11 +1,18 @@
 import sys
 import json
 import heapq
+from typing import Dict, Tuple, List
 
 RIVER_NEUTRAL = -1
 
 class ListMap():
-    def __init__(self, map_):
+    sites: List[int]
+    mines: List[int]
+    num_sites: int
+    body: List
+    mine_to_dists: Dict
+
+    def __init__(self, map_: Dict) -> None:
         self.sites = map_['sites']
         self.rivers = map_['rivers']
         self.mines = map_['mines']
@@ -24,7 +31,7 @@ class ListMap():
             self.mine_to_dists[mine] = self.get_mine_to_dists(mine)
         print('mine_to_dists:', self.mine_to_dists)
 
-    def exec_move(self, move):
+    def exec_move(self, move: Dict) -> None:
         if 'pass' in move:
             p = move['pass']['punter']
         elif 'claim' in move:
@@ -40,7 +47,7 @@ class ListMap():
         else:
             assert(False)
 
-    def get_neutral_rivers(self):
+    def get_neutral_rivers(self) -> List[Tuple[int, int]]:
         acc = []
         for s, neighbors in enumerate(self.body):
             for t in neighbors:
@@ -48,11 +55,11 @@ class ListMap():
                     acc.append((s, t))
         return acc
 
-    def get_mine_to_dists(self, mine):  # By Dijkstra method.
+    def get_mine_to_dists(self, mine: int) -> List[int]:  # By Dijkstra method.
         dists = [2 ** 31] * self.num_sites
         prevs = [-1] * self.num_sites  # -1: no prev.
         dists[mine] = 0
-        queue = []
+        queue: List[Tuple[int, int]] = []
         heapq.heappush(queue, (0, mine))
         while queue != []:
             _, u = heapq.heappop(queue)
@@ -66,11 +73,11 @@ class ListMap():
                     heapq.heappush(queue, (new_dist, t))
         return dists
 
-    def get_reachable_sites(self, mine, punter_id):
+    def get_reachable_sites(self, mine: int, punter_id: int) -> List[int]:
         maxint = 2 ** 31
         dists = [maxint] * self.num_sites
         dists[mine] = 0
-        queue = []
+        queue: List[Tuple[int, int]] = []
         heapq.heappush(queue, (0, mine))
         while queue != []:
             _, u = heapq.heappop(queue)
@@ -84,16 +91,27 @@ class ListMap():
                     heapq.heappush(queue, (new_dist, t))
         return [site for site, dist in enumerate(dists) if dist < maxint]
 
-    def print_map(self):
+    def print_map(self) -> None:
         print('map:', self.body)
 
 class PunterBase():
-    def __init__(self, setup):
+    punter_id: int
+    num_punters: int
+    lmap: ListMap
+
+    def __init__(self, setup) -> None:
         pass
 
-    def exec_setup(self, setup):
+    def get_name(self) -> str:
+        raise(NotImplementedError)
+
+    def exec_setup(self, setup) -> None:
         self.punter_id = setup['punter']
         self.num_punters = setup['punters']
+        self.lmap = ListMap(setup['map'])
+
+    def get_move(self, prev_moves) -> Dict:
+        raise(NotImplementedError)
 
 class PassPunter(PunterBase):
     def __init__(self, setup):
@@ -168,9 +186,6 @@ class EagerPunter(PunterBase):
 
     def exec_setup(self, setup):
         super(EagerPunter, self).exec_setup(setup)
-        self.punter_id = setup['punter']
-        self.num_punters = setup['punters']
-        self.lmap = ListMap(setup['map'])
         self.turn = 0
 
     def get_name(self):
