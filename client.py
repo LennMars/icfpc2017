@@ -1,7 +1,9 @@
-import socket
+from contextlib import closing
 import json
 import re
-from contextlib import closing
+import socket
+import sys
+
 import game
 
 BUFSIZE = 1024
@@ -77,6 +79,10 @@ class Communicator():
             assert(False)
 
 if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print('usage: python {} <port>'.format(sys.argv[0]))
+        sys.exit(0)
+    port = int(sys.argv[1])
     punter = game.EagerPunter()
-    comm = Communicator('punter.inf.ed.ac.uk', 9002, punter)
+    comm = Communicator('punter.inf.ed.ac.uk', port, punter)
     comm.start()
