@@ -5,7 +5,7 @@ from contextlib import closing
 import game
 
 BUFSIZE = 1024
-TIMEOUT = 5
+TIMEOUT = 10
 
 class Communicator():
     def __init__(self, host, port, punter):
