@@ -192,11 +192,18 @@ class PunterBase():
         msg = recv_in_json_std()
         if 'punter' in msg:  # Setup.
             ready = self.exec_setup(msg)
+            assert(type(ready['ready']) == int)
             send_in_json_std(ready)
         elif 'move' in msg:  # Gameplay.
             self.recover_state(msg['state'])
+            assert(type(self.punter_id) == int)
+            assert(type(self.num_punters) == int)
+            assert(type(self.lmap) == ListMap)
             move = self.get_move(msg['move']['moves'])
             state = self.dump_state()
+            assert(type(state['punter_id']) == int)
+            assert(type(state['num_punters']) == int)
+            assert(type(state['lmap']) == dict)
             send_in_json_std(move)
             send_in_json_std({'state': state})
         else:
