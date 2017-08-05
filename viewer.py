@@ -113,9 +113,9 @@ if __name__ == "__main__":
         draw = ImageDraw.Draw(img)
         num_punters = step['num_punters']
         draw_river(step['sites'], step['rivers'], draw)
-        draw_mines(step['sites'], step['mines'], draw)
         draw_body(step['sites'], step['body'], num_punters, draw)
         draw_sites(step['sites'], draw)
+        draw_mines(step['sites'], step['mines'], draw)
 
         pi = PIL.ImageTk.PhotoImage(img)
         canvas.create_image(width / 2, height / 2, image=pi, tag='image')
