@@ -7,6 +7,7 @@ RIVER_NEUTRAL = -1
 
 class ListMap():
     sites: List[int]
+    rivers: List
     mines: List[int]
     num_punters: int
     num_sites: int
@@ -98,6 +99,16 @@ class ListMap():
 
     def print_map(self) -> None:
         print('map:', self.body)
+
+    def dumps(self):
+        self_dict = {'sites': self.sites,
+                     'rivers': self.rivers,
+                     'mines': self.mines,
+                     'num_punters': self.num_punters,
+                     'num_sites': self.num_sites,
+                     'body': self.body,
+                     'mine_to_dists': self.mine_to_dists}
+        return json.dumps(self_dict)
 
     def get_punter_to_score(self) -> List[int]:
         punter_to_score = [0] * self.num_punters
@@ -214,6 +225,6 @@ if __name__ == '__main__':
         move_bob = bob.get_move(None)
         print('move_bob:', move_bob)
         lmap.exec_move(move_bob)
-        lmap.print_map()
+        print('map:', lmap.dumps())
 
     print('punter_to_score', lmap.get_punter_to_score())
