@@ -1,3 +1,4 @@
+import argparse
 import json
 import subprocess
 import sys
@@ -39,17 +40,29 @@ def send_gameplay(punter, moves, prev_state):
     return result['move'], result['next_state']
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
-        print('usage: python offline.py <map> <punter>...')
-        sys.exit(1)
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument('map_path',
+                           action='store',
+                           type=str,
+                           metavar='MAP')
+    argparser.add_argument('punter_cmds',
+                           action='store',
+                           type=str,
+                           nargs='+',
+                           metavar='PUNTER')
+    argparser.add_argument('-l',
+                           dest='map_log_path',
+                           action='store',
+                           type=str,
+                           default='map.log',
+                           metavar='LOG')
+    args = argparser.parse_args()
 
-    map_path = sys.argv[1]
-    with open(map_path) as fp:
+    with open(args.map_path) as fp:
         map_ = json.load(fp)
     # Init global info.
-    punter_cmds = sys.argv[2 :]
-    print('punters:', punter_cmds, file=sys.stderr)
-    num_punters = len(punter_cmds)
+    print('punters:', args.punter_cmds, file=sys.stderr)
+    num_punters = len(args.punter_cmds)
     setup = {'punter': None,
              'punters': num_punters,
              'map': map_}
@@ -61,7 +74,7 @@ if __name__ == '__main__':
         last_moves.append({'pass': {'punter': p}})
     # Setup punters.
     states = [None] * num_punters
-    for punter_id, cmd in enumerate(punter_cmds):
+    for punter_id, cmd in enumerate(args.punter_cmds):
         punter = subprocess.Popen(cmd,
                                   shell=True,
                                   stdin=subprocess.PIPE,
@@ -73,7 +86,7 @@ if __name__ == '__main__':
 
     for turn in range(lmap.num_rivers()):
         punter_id = turn % num_punters
-        cmd = punter_cmds[punter_id]
+        cmd = args.punter_cmds[punter_id]
         punter = subprocess.Popen(cmd,
                                   shell=True,
                                   stdin=subprocess.PIPE,
