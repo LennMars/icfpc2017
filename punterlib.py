@@ -1,9 +1,26 @@
+import copy
 import sys
 import json
 import heapq
 from typing import Dict, Tuple, List
 
 RIVER_NEUTRAL = -1
+
+def send_in_json(subp, buf):
+    subp.stdin.write((json.dumps(buf) + '\n').encode())
+    subp.stdin.flush()
+
+def send_in_json_std(buf):
+    print(json.dumps(buf), file=sys.stdout)
+    sys.stdout.flush()
+
+def recv_in_json(subp):
+    msg = subp.stdout.readline().strip()
+    return json.loads(msg.decode())
+
+def recv_in_json_std():
+    msg = sys.stdin.readline()
+    return json.loads(msg)
 
 class ListMap():
     sites: List[int]
@@ -16,8 +33,10 @@ class ListMap():
     # mine_to_dists[m][site] is distance from m-th mine to the site.
     mine_to_dists: Dict[int, List[int]]
 
-    def __init__(self, setup: Dict) -> None:
-        print(setup)
+    def __init__(self) -> None:
+        pass
+
+    def exec_setup(self, setup: Dict) -> None:
         self.sites = setup['map']['sites']
         self.rivers = setup['map']['rivers']
         self.mines = setup['map']['mines']
@@ -35,7 +54,17 @@ class ListMap():
         self.mine_to_dists = {}
         for mine in self.mines:
             self.mine_to_dists[mine] = self.get_mine_to_dists(mine)
-        print('mine_to_dists:', self.mine_to_dists)
+        print('[INFO] mine_to_dists:', self.mine_to_dists, file=sys.stderr)
+
+    def normalize_key(self):
+        for s in range(self.num_sites):
+            normalized = {}
+            for t in self.body[s].keys():
+                normalized[int(t)] = self.body[s][t]
+            self.body[s] = normalized
+
+    def num_rivers(self):
+        return len(self.rivers)
 
     def exec_move(self, move: Dict) -> None:
         if 'pass' in move:
@@ -49,7 +78,7 @@ class ListMap():
                 self.body[s][t] = p
                 self.body[t][s] = p
             else:
-                print('invalid move', file=sys.stderr)
+                print('[Warning] invalid move', file=sys.stderr)
         else:
             assert(False)
 
@@ -98,16 +127,16 @@ class ListMap():
         return [site for site, dist in enumerate(dists) if dist < maxint]
 
     def print_map(self) -> None:
-        print('map:', self.body)
+        print('[INFO] map:', self.body, file=sys.stderr)
 
     def dump(self):
-        self_dict = {'sites': self.sites,
-                     'rivers': self.rivers,
-                     'mines': self.mines,
+        self_dict = {'sites': copy.deepcopy(self.sites),
+                     'rivers': copy.deepcopy(self.rivers),
+                     'mines': copy.deepcopy(self.mines),
                      'num_punters': self.num_punters,
                      'num_sites': self.num_sites,
-                     'body': self.body,
-                     'mine_to_dists': self.mine_to_dists}
+                     'body': copy.deepcopy(self.body),
+                     'mine_to_dists': copy.deepcopy(self.mine_to_dists)}
         return self_dict
 
     def get_punter_to_score(self) -> List[int]:
@@ -117,6 +146,18 @@ class ListMap():
                 for site in lmap.get_reachable_sites(mine, punter):
                     punter_to_score[punter] += lmap.mine_to_dists[mine][site] ** 2
         return punter_to_score
+
+def recover_listmap(state):
+    lmap = ListMap()
+    lmap.sites = state['sites']
+    lmap.rivers = state['rivers']
+    lmap.mines = state['mines']
+    lmap.num_punters = state['num_punters']
+    lmap.num_sites = state['num_sites']
+    lmap.body = state['body']
+    lmap.normalize_key()
+    lmap.mine_to_dists = state['mine_to_dists']
+    return lmap
 
 class PunterBase():
     punter_id: int
@@ -132,10 +173,34 @@ class PunterBase():
     def exec_setup(self, setup) -> None:
         self.punter_id = setup['punter']
         self.num_punters = setup['punters']
-        self.lmap = ListMap(setup)
+        self.lmap = ListMap()
+        self.lmap.exec_setup(setup)
 
     def get_move(self, prev_moves) -> Dict:
         raise(NotImplementedError)
+
+    def recover_state(self, state) -> None:
+        raise(NotImplementedError)
+
+    def exec_all(self):
+        # Handshake.
+        name = self.get_name()
+        send_in_json_std({'me': name})
+        msg = recv_in_json_std()
+        assert(msg['you'] == name)
+        # Switch between Setup and Gameplay.
+        msg = recv_in_json_std()
+        if 'punter' in msg:  # Setup.
+            ready = self.exec_setup(msg)
+            send_in_json_std(ready)
+        elif 'move' in msg:  # Gameplay.
+            self.recover_state(msg['state'])
+            move = self.get_move(msg['move']['moves'])
+            state = self.dump_state()
+            send_in_json_std(move)
+            send_in_json_std({'state': state})
+        else:
+            assert(False)
 
 class PassPunter(PunterBase):
     def __init__(self):
@@ -205,14 +270,14 @@ class BobPunter(PunterBase):
 if __name__ == '__main__':
     with open('map/sample.json') as fp:
         map_ = json.load(fp)
-    print(json.dumps(map_, indent=2))
     setup_alice = {'punter': 0,
                    'punters': 2,
                    'map': map_}
     setup_bob = {'punter': 1,
                  'punters': 2,
                  'map': map_}
-    lmap = ListMap(setup_alice)
+    lmap = ListMap()
+    lmap.exec_setup(setup_alice)
 
     alice = AlicePunter()
     bob = BobPunter()
@@ -222,14 +287,14 @@ if __name__ == '__main__':
     map_log = []
     for turn in range(6):
         move_alice = alice.get_move(None)
-        print('move_alice:', move_alice)
+        print('[INFO] move_alice:', move_alice, file=sys.stderr)
         lmap.exec_move(move_alice)
         move_bob = bob.get_move(None)
-        print('move_bob:', move_bob)
+        print('[INFO] move_bob:', move_bob, file=sys.stderr)
         lmap.exec_move(move_bob)
         map_log.append(lmap.dump())
 
-    print('punter_to_score', lmap.get_punter_to_score())
-    print('output map log')
+    print('[INFO] punter_to_score', lmap.get_punter_to_score(), file=sys.stderr)
+    print('[INFO] output map log', file=sys.stderr)
     with open('map.log', 'w') as fp:
         json.dump(map_log, fp)
