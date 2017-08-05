@@ -143,8 +143,8 @@ class ListMap():
         punter_to_score = [0] * self.num_punters
         for mine in self.mines:
             for punter in range(self.num_punters):
-                for site in lmap.get_reachable_sites(mine, punter):
-                    punter_to_score[punter] += lmap.mine_to_dists[mine][site] ** 2
+                for site in self.get_reachable_sites(mine, punter):
+                    punter_to_score[punter] += self.mine_to_dists[mine][site] ** 2
         return punter_to_score
 
 def recover_listmap(state):

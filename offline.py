@@ -39,6 +39,10 @@ def send_gameplay(punter, moves, prev_state):
     return result['move'], result['next_state']
 
 if __name__ == '__main__':
+    if len(sys.argv) < 3:
+        print('usage: python offline.py <map> <punter>...')
+        sys.exit(1)
+
     map_path = sys.argv[1]
     with open(map_path) as fp:
         map_ = json.load(fp)
@@ -78,13 +82,11 @@ if __name__ == '__main__':
         print('[INFO] turn, punter_id, move, state:', turn, punter_id, move, state, file=sys.stderr)
         last_moves[punter_id] = move
         states[punter_id] = state
-        #print('[INFO] map1', lmap.dump(), file=sys.stderr)
         print('[INFO] move', move, file=sys.stderr)
         lmap.exec_move(move)
-        #print('[INFO] map2', lmap.dump(), file=sys.stderr)
         map_log.append(lmap.dump())
 
-    #print('punter_to_score', lmap.get_punter_to_score())
-    #print('output map log')
-    #with open('map.log', 'w') as fp:
-    #    json.dump(map_log, fp)
+    print('[INFO] punter_to_score:', lmap.get_punter_to_score(), file=sys.stderr)
+    print('[INFO] output map log', file=sys.stderr)
+    with open('map.log', 'w') as fp:
+        json.dump(map_log, fp, indent=2)
