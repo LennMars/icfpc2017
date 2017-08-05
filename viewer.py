@@ -1,7 +1,7 @@
 import tkinter
 from tkinter import Frame, Label, Canvas, StringVar, Button
 import PIL
-from PIL import Image, ImageTk, ImageDraw
+from PIL import Image, ImageTk, ImageDraw, ImageFont
 
 import punterlib
 
@@ -13,38 +13,72 @@ width = 600
 height = 600
 scale = 100
 
+now_step = 0
+
+
+def to_draw_x(site):
+    return site['x'] * scale + width / 2
+
+
+def to_draw_y(site):
+    return site['y'] * scale + height / 2
+
+
+def draw_edge(source_site, target_site, fill, draw):
+    sx = to_draw_x(source_site)
+    sy = to_draw_y(source_site)
+    tx = to_draw_x(target_site)
+    ty = to_draw_y(target_site)
+
+    draw.line((sx, sy, tx, ty), fill=fill, width=3)
+
 
 def draw_river(sites, rivers, draw):
     for river in rivers:
         source_site = [x for x in sites if x['id'] == river['source']][0]
         target_site = [x for x in sites if x['id'] == river['target']][0]
-        sx = source_site['x'] * scale + width / 2
-        sy = source_site['y'] * scale + height / 2
-        tx = target_site['x'] * scale + width / 2
-        ty = target_site['y'] * scale + height / 2
 
-        draw.line((sx,sy,tx,ty), fill=128)
+        draw_edge(source_site, target_site, (0, 0, 0), draw)
+
+
+def draw_site(site, draw, fill):
+    id = site['id']
+    x = to_draw_x(site)
+    y = to_draw_y(site)
+    size = 10
+    xy = ((x - size, y - size), (x + size, y + size))
+    draw.arc(xy=xy, start=0, end=360, fill=fill)
+
+
+    draw.text(xy=(x, y), text=str(id), fill=(0, 0, 0), align='center')
+
 
 def draw_sites(sites, draw):
     for site in sites:
-        id = site['id']
-        x = site['x'] * scale + width / 2
-        y = site['y'] * scale + height / 2
-        size = 10
-        xy = ((x - size, y - size), (x + size, y + size))
-        print(xy)
-        draw.arc(xy=xy, start=0, end=360, fill=(100, 255, 100))
-        draw.text(xy=(x, y), text=str(id))
+        draw_site(site, draw, (100, 100, 100))
 
 
+def draw_mines(sites, mines, draw):
+    mine_sites = [x for x in sites if x['id'] in mines]
+    for mine in mine_sites:
+        draw_site(mine, draw, (255, 100, 100))
 
-def defineSize(log_map):
-    print('TODO')
+
+def draw_body(sites, body, punter_num, draw):
+    # とりあえず数決め打ち
+    punter_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
+    if(len(punter_colors)<punter_num):
+        raise
+    for source_id in range(0, len(body) - 1):
+        source_site = [x for x in sites if x['id'] == source_id][0]
+        for target_id_str in body[source_id].keys():
+            target_id = int(target_id_str)
+            target_site = [x for x in sites if x['id'] == target_id][0]
+            draw_edge(source_site, target_site, punter_colors[body[source_id][target_id_str]], draw)
+
 
 if __name__ == "__main__":
     log_map = json.load(open(input, 'r'))
-    for step in log_map:
-        print(step)
 
     root = tkinter.Tk()
 
@@ -58,12 +92,6 @@ if __name__ == "__main__":
     img = PIL.Image.new('RGBA', (width, height))
     pi = PIL.ImageTk.PhotoImage(img)
 
-    # Draw crossed white lines.
-    # draw = ImageDraw.Draw(img)
-    # draw.line((0, 0) + img.size, fill=128)
-    # draw.line((0, img.size[1], img.size[0], 0), fill=128)
-
-
     # Set step no
     label_buff = StringVar()
     label_buff.set('step:0')
@@ -71,8 +99,6 @@ if __name__ == "__main__":
     label = Label(root, textvariable=label_buff)
     label.pack()
 
-    # manage step
-    now_step = 0
 
     def display_step():
         canvas.delete('image')
@@ -82,14 +108,18 @@ if __name__ == "__main__":
         pixels = img.load()
         for y in range(height):
             for x in range(width):
-                pixels[x, y] = (100, 100, 255, 255)
+                pixels[x, y] = (250, 250, 250, 255)
         global pi
         draw = ImageDraw.Draw(img)
+        num_punters = step['num_punters']
+        draw_river(step['sites'], step['rivers'], draw)
+        draw_mines(step['sites'], step['mines'], draw)
+        draw_body(step['sites'], step['body'], num_punters, draw)
         draw_sites(step['sites'], draw)
-        draw_river(step['sites'],step['rivers'],draw)
 
         pi = PIL.ImageTk.PhotoImage(img)
         canvas.create_image(width / 2, height / 2, image=pi, tag='image')
+
 
     def move_step(pre):
         global now_step
@@ -102,15 +132,18 @@ if __name__ == "__main__":
             if (now_step >= len(log_map)):
                 now_step -= 1
 
+
     # Set Next/Back Button
     def next_step():
         move_step(pre=False)
 
         display_step()
 
+
     def pre_step():
         move_step(pre=True)
         display_step()
+
 
     nextButton = Button(root, text='Next', command=lambda: next_step())
     nextButton.pack()
