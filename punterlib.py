@@ -8,14 +8,19 @@ RIVER_NEUTRAL = -1
 class ListMap():
     sites: List[int]
     mines: List[int]
+    num_punters: int
     num_sites: int
-    body: List
-    mine_to_dists: Dict
+    # body: s-th entry is Dict[target, state of river (s, target)].
+    body: List[Dict[int, int]]
+    # mine_to_dists[m][site] is distance from m-th mine to the site.
+    mine_to_dists: Dict[int, List[int]]
 
-    def __init__(self, map_: Dict) -> None:
-        self.sites = map_['sites']
-        self.rivers = map_['rivers']
-        self.mines = map_['mines']
+    def __init__(self, setup: Dict) -> None:
+        print(setup)
+        self.sites = setup['map']['sites']
+        self.rivers = setup['map']['rivers']
+        self.mines = setup['map']['mines']
+        self.num_punters = setup['punters']
 
         self.num_sites = len(self.sites)
         self.body = []
@@ -94,12 +99,20 @@ class ListMap():
     def print_map(self) -> None:
         print('map:', self.body)
 
+    def get_punter_to_score(self) -> List[int]:
+        punter_to_score = [0] * self.num_punters
+        for mine in self.mines:
+            for punter in range(self.num_punters):
+                for site in lmap.get_reachable_sites(mine, punter):
+                    punter_to_score[punter] += lmap.mine_to_dists[mine][site] ** 2
+        return punter_to_score
+
 class PunterBase():
     punter_id: int
     num_punters: int
     lmap: ListMap
 
-    def __init__(self, setup) -> None:
+    def __init__(self) -> None:
         pass
 
     def get_name(self) -> str:
@@ -108,13 +121,13 @@ class PunterBase():
     def exec_setup(self, setup) -> None:
         self.punter_id = setup['punter']
         self.num_punters = setup['punters']
-        self.lmap = ListMap(setup['map'])
+        self.lmap = ListMap(setup)
 
     def get_move(self, prev_moves) -> Dict:
         raise(NotImplementedError)
 
 class PassPunter(PunterBase):
-    def __init__(self, setup):
+    def __init__(self):
         pass
 
     def get_name(self):
@@ -127,7 +140,7 @@ class PassPunter(PunterBase):
         return {'pass': {'punter': p}}
 
 class AlicePunter(PunterBase):
-    def __init__(self, setup):
+    def __init__(self):
         self.turn = 0
 
     def get_name(self):
@@ -153,9 +166,7 @@ class AlicePunter(PunterBase):
         return move
 
 class BobPunter(PunterBase):
-    def __init__(self, setup):
-        self.punter_id = setup['punter']
-        self.num_punters = setup['punters']
+    def __init__(self):
         self.turn = 0
 
     def get_name(self):
@@ -180,25 +191,6 @@ class BobPunter(PunterBase):
         self.turn += 1
         return move
 
-class EagerPunter(PunterBase):
-    def __init__(self):
-        pass
-
-    def exec_setup(self, setup):
-        super(EagerPunter, self).exec_setup(setup)
-        self.turn = 0
-
-    def get_name(self):
-        return 'cube_eager_punter'
-
-    def get_move(self, prev_moves):
-        for move in prev_moves:
-            self.lmap.exec_move(move)
-        rs = self.lmap.get_neutral_rivers()
-        s, t = rs[0]
-        self.turn += 1
-        return {'claim': {'punter': self.punter_id, 'source': s, 'target': t}}
-
 if __name__ == '__main__':
     with open('map/sample.json') as fp:
         map_ = json.load(fp)
@@ -209,10 +201,12 @@ if __name__ == '__main__':
     setup_bob = {'punter': 1,
                  'punters': 2,
                  'map': map_}
-    lmap = ListMap(map_)
+    lmap = ListMap(setup_alice)
 
-    alice = AlicePunter(setup_alice)
-    bob = BobPunter(setup_bob)
+    alice = AlicePunter()
+    bob = BobPunter()
+    alice.exec_setup(setup_alice)
+    bob.exec_setup(setup_bob)
     for turn in range(6):
         move_alice = alice.get_move(None)
         print('move_alice:', move_alice)
@@ -222,9 +216,4 @@ if __name__ == '__main__':
         lmap.exec_move(move_bob)
         lmap.print_map()
 
-    punter_to_score = [0] * setup_alice['num_punters']
-    for mine in lmap.mines:
-        for punter in range(setup_alice['num_punters']):
-            for site in lmap.get_reachable_sites(mine, punter):
-                punter_to_score[punter] += lmap.mine_to_dists[mine][site] ** 2
-    print('punter_to_score', punter_to_score)
+    print('punter_to_score', lmap.get_punter_to_score())

@@ -5,6 +5,8 @@ import socket
 import sys
 
 import punterlib
+from eager_punter import EagerPunter
+from bfs_punter import BFSPunter
 
 BUFSIZE = 1024
 TIMEOUT = 10
@@ -79,10 +81,14 @@ class Communicator():
             assert(False)
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print('usage: python {} <port>'.format(sys.argv[0]))
+    if len(sys.argv) < 3:
+        print('usage: python {} <punter> <port>'.format(sys.argv[0]))
         sys.exit(0)
-    port = int(sys.argv[1])
-    punter = punterlib.EagerPunter()
+    punter_kind = sys.argv[1]
+    if punter_kind == 'eager':
+        punter = EagerPunter()
+    elif punter_kind == 'bfs':
+        punter = BFSPunter()
+    port = int(sys.argv[2])
     comm = Communicator('punter.inf.ed.ac.uk', port, punter)
     comm.start()
