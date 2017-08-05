@@ -16,6 +16,7 @@ def send_in_json_std(buf):
 
 def recv_in_json(subp):
     msg = subp.stdout.readline().strip()
+    print('[DEBUG] recv_in_json msg:', msg, file=sys.stderr)
     return json.loads(msg.decode())
 
 def recv_in_json_std():
@@ -57,11 +58,17 @@ class ListMap():
         print('[INFO] mine_to_dists:', self.mine_to_dists, file=sys.stderr)
 
     def normalize_key(self):
+        # For body.
         for s in range(self.num_sites):
             normalized = {}
             for t in self.body[s].keys():
                 normalized[int(t)] = self.body[s][t]
             self.body[s] = normalized
+        # For mine_to_dists.
+        normalized = {}
+        for m in self.mine_to_dists.keys():
+            normalized[int(m)] = self.mine_to_dists[m]
+        self.mine_to_dists = normalized
 
     def num_rivers(self):
         return len(self.rivers)
@@ -155,8 +162,8 @@ def recover_listmap(state):
     lmap.num_punters = state['num_punters']
     lmap.num_sites = state['num_sites']
     lmap.body = state['body']
-    lmap.normalize_key()
     lmap.mine_to_dists = state['mine_to_dists']
+    lmap.normalize_key()  # For recover type of body and mine_to_dists.
     return lmap
 
 class PunterBase():
@@ -304,4 +311,4 @@ if __name__ == '__main__':
     print('[INFO] punter_to_score', lmap.get_punter_to_score(), file=sys.stderr)
     print('[INFO] output map log', file=sys.stderr)
     with open('map.log', 'w') as fp:
-        json.dump(map_log, fp)
+        json.dump(map_log, fp, indent=2)
