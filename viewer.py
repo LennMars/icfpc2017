@@ -1,3 +1,5 @@
+import json
+import sys
 import tkinter
 from tkinter import Frame, Label, Canvas, StringVar, Button
 import PIL
@@ -5,16 +7,9 @@ from PIL import Image, ImageTk, ImageDraw, ImageFont
 
 import punterlib
 
-import json
-
-input = 'map.log'
-
 width = 600
 height = 600
 scale = 100
-
-now_step = 0
-
 
 def to_draw_x(site):
     return site['x'] * scale + width / 2
@@ -48,8 +43,6 @@ def draw_site(site, draw, fill):
     size = 10
     xy = ((x - size, y - size), (x + size, y + size))
     draw.arc(xy=xy, start=0, end=360, fill=fill)
-
-
     draw.text(xy=(x, y), text=str(id), fill=(0, 0, 0), align='center')
 
 
@@ -67,18 +60,26 @@ def draw_mines(sites, mines, draw):
 def draw_body(sites, body, punter_num, draw):
     # とりあえず数決め打ち
     punter_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
-    if(len(punter_colors)<punter_num):
-        raise
+    if len(punter_colors) < punter_num:
+        print('[Warning] punter color is circulated', file=sys.stderr)
     for source_id in range(0, len(body) - 1):
         source_site = [x for x in sites if x['id'] == source_id][0]
         for target_id_str in body[source_id].keys():
             target_id = int(target_id_str)
             target_site = [x for x in sites if x['id'] == target_id][0]
-            draw_edge(source_site, target_site, punter_colors[body[source_id][target_id_str]], draw)
+            punter_id = body[source_id][target_id_str]
+            color_id = punter_id % len(punter_colors)
+            draw_edge(source_site, target_site, punter_colors[color_id], draw)
 
 
 if __name__ == "__main__":
-    log_map = json.load(open(input, 'r'))
+    if len(sys.argv) < 2:
+        print('Usage: python viewer.py <MapLog>')
+        sys.exit(1)
+    with open(sys.argv[1]) as fp:
+        log_map = json.load(fp)
+
+    now_step = 0
 
     root = tkinter.Tk()
 
@@ -89,12 +90,9 @@ if __name__ == "__main__":
     canvas.grid(row=0, column=0)
     frame.pack(fill=tkinter.BOTH, expand=1)
 
-    img = PIL.Image.new('RGBA', (width, height))
-    pi = PIL.ImageTk.PhotoImage(img)
-
     # Set step no
     label_buff = StringVar()
-    label_buff.set('step:0')
+    label_buff.set('step: 0')
 
     label = Label(root, textvariable=label_buff)
     label.pack()
@@ -102,14 +100,14 @@ if __name__ == "__main__":
 
     def display_step():
         canvas.delete('image')
-        label_buff.set('step:' + str(now_step))
+        label_buff.set('step: {:d}'.format(now_step))
         step = log_map[now_step]
 
+        img = PIL.Image.new('RGBA', (width, height))
         pixels = img.load()
         for y in range(height):
             for x in range(width):
                 pixels[x, y] = (250, 250, 250, 255)
-        global pi
         draw = ImageDraw.Draw(img)
         num_punters = step['num_punters']
         draw_river(step['sites'], step['rivers'], draw)
@@ -117,26 +115,22 @@ if __name__ == "__main__":
         draw_sites(step['sites'], draw)
         draw_mines(step['sites'], step['mines'], draw)
 
+        global pi
         pi = PIL.ImageTk.PhotoImage(img)
         canvas.create_image(width / 2, height / 2, image=pi, tag='image')
 
 
     def move_step(pre):
         global now_step
-        if (pre == True):
-            now_step -= 1
-            if (now_step < 0):
-                now_step += 1
-        if (pre == False):
-            now_step += 1
-            if (now_step >= len(log_map)):
-                now_step -= 1
+        if pre:
+            now_step = max(0, now_step - 1)
+        else:
+            now_step = min(len(log_map) - 1, now_step + 1)
 
 
     # Set Next/Back Button
     def next_step():
         move_step(pre=False)
-
         display_step()
 
 
@@ -146,8 +140,8 @@ if __name__ == "__main__":
 
 
     nextButton = Button(root, text='Next', command=lambda: next_step())
-    nextButton.pack()
     preButton = Button(root, text='Pre', command=lambda: pre_step())
+    nextButton.pack()
     preButton.pack()
 
     display_step()
